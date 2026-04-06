@@ -25,6 +25,7 @@ namespace alang {
 	enum class ASTDeclType
 	{
 		Var,
+		Stmt,
 		Func,
 		Param,
 		Class,
@@ -45,6 +46,15 @@ namespace alang {
 		Array,
 		Function,
 		Class, // Representing custom types
+	};
+
+	enum class ASTStmtType
+	{
+		If,
+		While,
+		For,
+		Return,
+		Decl,
 	};
 
 	std::string stringify(class Type* type);
@@ -77,7 +87,10 @@ namespace alang {
 	struct Stmt : public ASTNode
 	{
 	public:
+		const ASTStmtType type;
 		virtual ~Stmt() = default;
+	protected:
+		Stmt(ASTStmtType type) : type(type) {}
 	};
 
 	struct Decl : public ASTNode
@@ -336,6 +349,9 @@ namespace alang {
 	struct IfStmt : public Stmt
 	{
 	public:
+		IfStmt(Expr* condition, Stmt* thenBranch, Stmt* elseBranch = nullptr) 
+			: Stmt(ASTStmtType::If), condition(condition), thenBranch(thenBranch), elseBranch(elseBranch) {
+		}
 		virtual ~IfStmt() = default;
 	private:
 		Expr* condition;
@@ -346,6 +362,9 @@ namespace alang {
 	struct WhileStmt : public Stmt
 	{
 	public:
+		WhileStmt(Expr* condition, Stmt* body) 
+			: Stmt(ASTStmtType::While), condition(condition), body(body) {
+		}
 		virtual ~WhileStmt() = default;
 	private:
 		Expr* condition;
@@ -355,6 +374,9 @@ namespace alang {
 	struct ForStmt : public Stmt
 	{
 	public:
+		ForStmt(Stmt* initializer, Expr* condition, Expr* increment, Stmt* body) 
+			: Stmt(ASTStmtType::For), initializer(initializer), condition(condition), increment(increment), body(body) {
+		}
 		virtual ~ForStmt() = default;
 	private:
 		Stmt* initializer;
@@ -366,24 +388,59 @@ namespace alang {
 	struct ReturnStmt : public Stmt
 	{
 	public:
+		ReturnStmt(Expr* value = nullptr) : Stmt(ASTStmtType::Return), value(value) {}
 		virtual ~ReturnStmt() = default;
 	private:
 		Expr* value;
 	};
 
-	struct DeclStmt : public Stmt
+
+	enum class DeclStmtType
 	{
-	public:
-		virtual ~DeclStmt() = default;
-	private:
-		Decl* declaration;
+		EmptyScope,
+		Var,
+		Class,
 	};
 
-	struct UndefinedStmt : public Stmt
+	struct DeclStmt : public Decl, public Stmt
 	{
 	public:
-		virtual ~UndefinedStmt() = default;
+		const DeclStmtType type;
+		virtual ~DeclStmt() = default;
+	protected:
+	DeclStmt(DeclStmtType type, Stmt* sourceStmt) : Decl(ASTDeclType::Stmt), Stmt(ASTStmtType::Decl), type(type), fatherStmt(sourceStmt) {}
+	private:
+		Stmt* fatherStmt;
 	};
+
+	
+	struct EmptyScopeDeclStmt : public DeclStmt
+	{
+	public:
+		EmptyScopeDeclStmt(Stmt* sourceStmt, std::vector<Stmt*> decl) : DeclStmt(DeclStmtType::EmptyScope, sourceStmt), statments(std::move(decl)) {}
+		virtual ~EmptyScopeDeclStmt() = default;
+	private:
+		std::vector<Stmt*> statments;
+	};
+
+	struct VarDeclStmt : public DeclStmt
+	{
+	public:
+		VarDeclStmt(VarDecl* decl, Stmt* sourceStmt) : DeclStmt(DeclStmtType::Var, sourceStmt), declaration(decl) {}
+		virtual ~VarDeclStmt() = default;
+	private:
+		VarDecl* declaration;
+	};
+	
+	struct ClassDeclStmt : public DeclStmt
+	{
+	public:
+		ClassDeclStmt(ClassDecl* decl, Stmt* sourceStmt) : DeclStmt(DeclStmtType::Class, sourceStmt), declaration(decl) {}
+		virtual ~ClassDeclStmt() = default;
+	private:
+		ClassDecl* declaration;
+	};
+
 
 	// Further derived classes of Declarations
 
@@ -408,12 +465,15 @@ namespace alang {
 		Expr* initializer;
 	};
 
+
+
 	struct FuncDecl : public Decl
 	{
 	public:
 		FuncDecl(FunctionType* type, std::string_view name, std::vector<std::string_view> paramNames, std::vector<Stmt*> statments);
 		std::string_view get_mingled_name() const;
 		std::string_view get_name() const;
+		const std::vector<Stmt*>& get_statments() const;
 		size_t get_param_count() const;
 		virtual ~FuncDecl() = default;
 	private:
@@ -465,7 +525,7 @@ namespace alang {
 		std::string_view get_name() const;
 		const std::vector<FuncDecl*>& get_func_decls();
 		const std::vector<ClassDecl*>& get_class_decls();
-		const std::vector<VarDecl*>& get_var_decls();
+		const std::vector<VarDecl*>& get_var_decls() const;
 
 		virtual ~ModuleDecl() = default;
 	private:
@@ -485,6 +545,9 @@ namespace alang {
 		std::string moduleName;
 		ModuleDecl* module;
 	};
+
+	template<typename T>
+	concept IsDeclDerived = std::derived_from<T, Decl> && !std::same_as<T, Decl>;
 
 	// Further derived classes of Types
 

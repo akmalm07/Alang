@@ -86,6 +86,7 @@ namespace alang {
 				if (!nextExpr) return nullptr;
 				break;
 			case TokenType::Identifier:
+			{
 				if (isItemExpr)
 				{
 					add_err(ErrorType::SyntaxError, c_unexpected_token(_tokens[i].value), i);
@@ -127,9 +128,9 @@ namespace alang {
 					decl = find_declaration_var(members)
 					if (!decl) return nullptr;
 				nextExpr = _memArena.alloc<VariableExpr>(_tokens[i].value, decl);
-				break;
 
 				break;
+			}
 			case TokenType::LeftParen:
 				if (isItemExpr)
 				{

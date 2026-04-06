@@ -38,24 +38,14 @@ namespace alang
 		return true;
 	}
 
-	FuncDecl* DeclTracker::find_declaration_func(Decl* whereFrom, std::string_view name) const
-	{
-		switch (whereFrom->type)
-		{
-		case ASTDeclType::Module:
-			static_cast<ModuleDecl*>(whereFrom)->get_func_decls();
-
-		}
-	}
-
 	bool DeclTracker::add_variable(std::string_view name, Type* type, Atribute* atribute)
 	{
 		if (!is_valid_name(name))
 			return false;
 		if (atribute)
-			_modules[_currentModule.index]->add_decl(_arena.alloc<VarDecl>(name, type, atribute));
+			_modules[_currentModule.index]->add_var_decl(_arena.alloc<VarDecl>(name, type, atribute));
 		else
-			_modules[_currentModule.index]->add_decl(_arena.alloc<VarDecl>(name, type));
+			_modules[_currentModule.index]->add_var_decl(_arena.alloc<VarDecl>(name, type));
 		return true;
 	}
 
@@ -63,7 +53,7 @@ namespace alang
 	{
 		if (!is_valid_name(name))
 			return false;
-		_modules[_currentModule.index]->add_decl(_arena.alloc<VarDecl>(name, type, std::move(atributes)));
+		_modules[_currentModule.index]->add_var_decl(_arena.alloc<VarDecl>(name, type, std::move(atributes)));
 		return true;
 	}
 
@@ -71,7 +61,7 @@ namespace alang
 	{
 		if (!is_valid_name(name))
 			return false;
-		_modules[_currentModule.index]->add_decl(_arena.alloc<ClassDecl>(name, std::move(privateMembers), std::move(publicMembers)));
+		_modules[_currentModule.index]->add_class_decl(_arena.alloc<ClassDecl>(name, std::move(privateMembers), std::move(publicMembers)));
 		return true;
 	}
 
@@ -98,7 +88,7 @@ namespace alang
 	{
 		if (!is_valid_name(name))
 			return false;
-		_modules[_currentModule.index]->add_decl(_arena.alloc<FuncDecl>(type, name, std::move(paramNames), std::move(statments)));
+		_modules[_currentModule.index]->add_func_decl(_arena.alloc<FuncDecl>(type, name, std::move(paramNames), std::move(statments)));
 		return true;
 	}
 
@@ -119,14 +109,15 @@ namespace alang
 
 	bool DeclTracker::variable_exists(std::string_view name) const
 	{
-		auto vars = _modules[_currentModule.index]->get_decls();
+		auto vars = _modules[_currentModule.index]->get_var_decls();
 		for (const auto& var : vars)
 		{
-			if (var->type() == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
+			if (var->type == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
 				return true;
 		}
 		return false;
 	}
+
 	bool DeclTracker::module_exists(std::string_view name) const
 	{
 		for (const auto& mod : _modules)
@@ -136,22 +127,22 @@ namespace alang
 		}
 		return false;
 	}
-	VarDecl* DeclTracker::resolve_member_variable(const std::vector<std::string_view>& memberAccess) const
-	{
-		return nullptr;
-	}
-	VarDecl* DeclTracker::resolve_variable(std::string_view name) const
-	{
-		auto vars = _modules[_currentModule.index]->get_decls();
-		for (const auto& var : vars)
-		{
-			if (var->type() == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
-				return static_cast<VarDecl*>(var);
-		}
-		return nullptr;
-	}
-	FuncDecl* DeclTracker::resolve_function(std::string_view name) const
-	{
-		return nullptr;
-	}
+	//VarDecl* DeclTracker::resolve_member_variable(const std::vector<std::string_view>& memberAccess) const
+	//{
+	//	return nullptr;
+	//}
+	//VarDecl* DeclTracker::resolve_variable(std::string_view name) const
+	//{
+	//	auto vars = _modules[_currentModule.index]->get_var_decls();
+	//	for (const auto& var : vars)
+	//	{
+	//		if (var->type() == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
+	//			return static_cast<VarDecl*>(var);
+	//	}
+	//	return nullptr;
+	//}
+	//FuncDecl* DeclTracker::resolve_function(std::string_view name) const
+	//{
+	//	return nullptr;
+	//}
 }

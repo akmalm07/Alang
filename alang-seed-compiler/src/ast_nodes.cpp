@@ -4,9 +4,9 @@
 
 namespace alang
 {
-    void ModuleDecl::add_decl(Decl* decl)
+    void ModuleDecl::add_var_decl(VarDecl* decl)
     {
-		declarations.push_back(decl);
+		varDecls.push_back(decl);
     }
 
     std::string_view ModuleDecl::get_name() const
@@ -14,9 +14,20 @@ namespace alang
         return name;
     }
 
-    const std::vector<Decl*>& ModuleDecl::get_decls()
+    const std::vector<VarDecl*>& ModuleDecl::get_var_decls() const
     {
-		return declarations;
+		return varDecls;
+    }
+
+
+    const std::vector<Stmt*>& FuncDecl::get_statments() const
+    {
+        return statments;
+    }
+
+    size_t FuncDecl::get_param_count() const
+    {
+        return paramNames.size();
     }
 
     std::string_view VarDecl::get_name() const

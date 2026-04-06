@@ -43,13 +43,10 @@ namespace alang
 		bool variable_exists(std::string_view name) const;
 		bool module_exists(std::string_view name) const;
 
-		VarDecl* resolve_member_variable(const std::vector<std::string_view>& memberAccess) const; // TODO: Implememnt
+		//VarDecl* resolve_member_variable(const std::vector<std::string_view>& memberAccess) const; // TODO: Implememnt
+		//VarDecl* resolve_variable(std::string_view name) const;
+		//FuncDecl* resolve_function(std::string_view name) const; // TODO: Implememnt
 
-		VarDecl* resolve_variable(std::string_view name) const;
-
-		FuncDecl* resolve_function(std::string_view name) const; // TODO: Implememnt
-
-		FuncDecl* find_declaration_func(Decl* whereFrom, std::string_view name) const;
 		/*
 		bool add_global_variable(std::string_view name, Type* type, Atribute* atribute = nullptr);
 		bool add_global_variable(std::string_view name, Type* type, std::vector<Atribute*>& atributes);
