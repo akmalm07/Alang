@@ -1,15 +1,30 @@
 #pragma once
 
+#include <string>
+
 namespace alang
 {
 
-
-
-
-	/*
-	enum TokenType
+	enum class TokenType
 	{
-		Undefined,
+		// Keywords
+		If,
+		Else,
+		While,
+		For,
+		Return,
+		Break,
+		Continue,
+		Private,
+		Public,
+		Int,
+		Float,
+		Void,
+		Bool,
+		Double,
+		Char,
+		Class,
+		Module,
 
 		// Identifiers
 		Identifier,
@@ -24,32 +39,50 @@ namespace alang
 		RightParen,
 		Equal,
 		Semicolon,
+		DoubleQuote,
+		Quote, 
+		Dot, // TODO: mkae sure the elexer handles this!
+		Comma, // TODO: mkae sure the elexer handles this!
+		Colon, // TODO: make sure the lexer handles this!
+		ColonColon, // TODO: make sure the lexer handles this!
+		LeftBrace, // TODO: make sure the lexer handles this!
+		RightBrace, // TODO: make sure the lexer handles this!
+		Exclamation, // TODO: make sure the lexer handles this!
+		Tilde, // TODO: make sure the lexer handles this! (~)
 
-		// Keywords
-		If,
-		Else,
-		While,
-		For,
-		Return,
+		Asterisk,
+		Percent,
+		NotEquals,
+		GreaterThan,
+		GreaterThanEquals,
+		PipePipe,
+		Pipe,
+		Slash,
+		EqualsEquals,
+		LessThan,
+		LessThanEquals,
+		AmpersandAmpersand,
+		Ampersand,
+		Caret,
 
-		// Types
-		Int,
-		Float,
-		Void,
-		Bool,
-		Double,
+		// End of file
+		EndOfFile
+
+		// Add more token types as needed
 
 	};
 
 	struct Token
 	{
+	public:
 		TokenType type;
 		std::string value;
-		int line;
-		int column;
-		Token(TokenType type, const std::string& value, int line, int column)
+		unsigned int line;
+		unsigned int column;
+		Token(TokenType type, const std::string& value, unsigned int line, unsigned int column)
 			: type(type), value(value), line(line), column(column) {}
 	};
-	*/
+
+	using Tokens = std::vector<Token>;
 }
 
