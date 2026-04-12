@@ -42,13 +42,6 @@ namespace alang
 		{
 			const auto& statments = whereFrom->get_statments();
 
-			if (statments[size - 1]->type == ASTStmtType::Undefined)
-			{
-				VarDecl* varDecl = static_cast<VarDecl*>(statments[size - 1]);
-				if (varDecl->get_name() == name.back())
-					return varDecl;
-			}
-
 			for (unsigned int i = size - 1; i >= 0; i--)
 			{
 				if (statments[i]->type == ASTNodeType::VarDecl)

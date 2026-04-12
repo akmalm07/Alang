@@ -3,690 +3,768 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <type_traits>
-
+#include <cassert>
 
 namespace alang {
 
+    // ============================================================================
+    // Forward Declarations
+    // ============================================================================
 
-	enum class ASTExprType
-	{
-		Binary,
-		Unary,
-		NumberLiteral,
-		StringLiteral,
-		Variable,
-		Call,
-		Container
+    class ASTNode;
+    class Expr;
+    class Stmt;
+    class Decl;
+    class Type;
+    class Atribute;
+    class VarDecl;
+    class FuncDecl;
+    class FunctionType;
+    class NumAtribute;
+    class NumLiteralTypeAtribute;
+
+    // ============================================================================
+    // RTTI Enums
+    // ============================================================================
+
+    enum class ASTNodeKind 
+    {
+        // Expr range
+        ExprBegin,
+        BinaryExpr = ExprBegin,
+        UnaryExpr,
+        NumberLiteralExpr,
+        StringLiteralExpr,
+        VariableExpr,
+        CallExpr,
+        ExprEnd,
+
+        // Stmt range
+        StmtBegin,
+        IfStmt = StmtBegin,
+        WhileStmt,
+        ForStmt,
+        ReturnStmt,
+        DeclStmt,
+        StmtEnd,
+
+        // Decl range
+        DeclBegin,
+        VarDecl = DeclBegin,
+        FuncDecl,
+        ParamDecl,
+        ClassDecl,
+        ModuleDecl,
+        ImportDecl,
+        DeclEnd,
+
+        // Type range
+        TypeBegin,
+        IntType = TypeBegin,
+        FloatType,
+        DoubleType,
+        BoolType,
+        CharType,
+        PointerType,
+        ArrayType,
+        FunctionType,
+        ClassType,
+        TypeEnd,
+
+		AtributeBegin,
+		ConstAtribute = AtributeBegin,
+		UnsignedAtribute,
+		StaticAtribute,
+		AtributeEnd,
+    };
+
+    enum class NumAtributeKind
+    {
+        Unsigned,
+        Short,
+        Long,
+
 	};
 
-	std::string_view stringify(ASTExprType type);
+    int i = -100z;
 
-	enum class ASTDeclType
-	{
-		Var,
-		Stmt,
-		Func,
-		Param,
-		Class,
-		Module,
-		Import,
-	};
+    enum class BinaryExprOp 
+    {
+        Add,
+        Subtract,
+        Multiply,
+        Divide,
+        Modulo,
+        And,
+        Or,
+        Xor,
+    };
 
-	std::string_view stringify(ASTDeclType type);
+    enum class UnaryExprOp 
+    {
+        Negate,
+        Plus,
+        LogicalNot,
+        Dereference,
+    };
 
-	enum class ASTType
-	{
-		Int,
-		Float,
-		Double,
-		Bool,
-		Char,
-		Pointer,
-		Array,
-		Function,
-		Class, // Representing custom types
-	};
+    enum class PrecedenceLevel 
+    {
+        Lowest = 0,
+        Assignment = 1,
+        LogicalOr = 2,
+        LogicalAnd = 3,
+        BitwiseOr = 4,
+        BitwiseXor = 5,
+        BitwiseAnd = 6,
+        Equality = 7,
+        Relational = 8,
+        Additive = 9,
+        Multiplicative = 10,
+        Unary = 11,
+    };
 
-	enum class ASTStmtType
-	{
-		If,
-		While,
-		For,
-		Return,
-		Decl,
-	};
+    // ============================================================================
+    // RTTI Base & CRTP Helpers
+    // ============================================================================
 
-	std::string stringify(class Type* type);
+    class ASTNode 
+    {
+    public:
+        const ASTNodeKind kind;
+        ~ASTNode() = default;
 
-	// TODO: Add Short and Long attributes!!
+    protected:
+        ASTNode(ASTNodeKind k) : kind(k) {}
 
-	// Base class for all AST nodes
-	struct ASTNode
-	{
-	public:
-		virtual ~ASTNode() = default;
-	};
+    private:
+    };
+
+    // CRTP helper without subkind
+    template <typename Derived, typename Base, ASTNodeKind K>
+    class RTTI : public Base 
+    {
+    public:
+        static constexpr ASTNodeKind kindValue = K;
+
+        template <typename... Args>
+        RTTI(Args&&... args)
+            : Base(K, std::forward<Args>(args)...) {}
+
+        static bool classof(const ASTNode* node) {
+            return node && node->kind == K;
+        }
+    };
 
 
-	// Derived classes for different types of AST nodes
-	struct Expr : public ASTNode
-	{
-	public:
-		const ASTExprType type;
-		Expr& operator=(const Expr&) = delete; 
-		Expr(const Expr&) = delete;
+    // ============================================================================
+    // Casting Utilities
+    // ============================================================================
 
-	protected:
-		Expr(ASTExprType type) : type(type) {}
+    template <typename T>
+    bool isa(const ASTNode* node) 
+    {
+        return node && T::classof(node);
+    }
 
-	public:
-		virtual ~Expr() = default;
-	};
+    template <typename T>
+    T* cast(ASTNode* node) {
+        assert(isa<T>(node) && "Invalid cast");
+        return static_cast<T*>(node);
+    }
 
-	struct Stmt : public ASTNode
-	{
-	public:
-		const ASTStmtType type;
-		virtual ~Stmt() = default;
-	protected:
-		Stmt(ASTStmtType type) : type(type) {}
-	};
+    template <typename T>
+    const T* cast(const ASTNode* node) 
+    {
+        assert(isa<T>(node) && "Invalid cast");
+        return static_cast<const T*>(node);
+    }
 
-	struct Decl : public ASTNode
-	{
-	public:
-		const ASTDeclType type;
+    template <typename T>
+    T* dyn_cast(ASTNode* node) 
+    {
+        return isa<T>(node) ? static_cast<T*>(node) : nullptr;
+    }
 
-	protected:
-		Decl(ASTDeclType type) : type(type) {}
+    template <typename T>
+    const T* dyn_cast(const ASTNode* node) 
+    {
+        return isa<T>(node) ? static_cast<const T*>(node) : nullptr;
+    }
 
-	public:
-		virtual ~Decl() = default;
-	};
+    // ============================================================================
+    // Intermediate Base Classes (with Subkinds)
+    // ============================================================================
 
-	struct Type : public ASTNode
-	{
-	public:
-		const ASTType type;
+    class Expr : public ASTNode 
+    {
+    public:
 
-	protected:
-		Type(ASTType type) : type(type) {}
+        static bool classof(const ASTNode* node) 
+        {
+            return node && node->kind >= ASTNodeKind::ExprBegin &&
+                   node->kind < ASTNodeKind::ExprEnd;
+        }
 
-	public:
-		virtual ~Type() = default;
-	};
+    protected:
+        Expr(ASTNodeKind k) : ASTNode(k) {}
 
-	struct Atribute : public ASTNode
-	{
-	public:
-		virtual ~Atribute() = default;
-	};
+    private:
+    };
 
-	struct Module : public ASTNode
-	{
-	public:
-		virtual ~Module() = default;
-	};
+    class Stmt : public ASTNode 
+    {
+    public:
+        static bool classof(const ASTNode* node) 
+        {
+            return node && node->kind >= ASTNodeKind::StmtBegin &&
+                   node->kind < ASTNodeKind::StmtEnd;
+        }
 
-	// Important concepts
-	template<typename T>
-	concept NameableDecl = std::is_base_of_v<Decl, T> && requires(T t) {
-		{ t.get_name() } -> std::convertible_to<std::string_view>;
-	};
+    protected:
+        Stmt(ASTNodeKind k) : ASTNode(k) {}
 
-	struct Operator : public Expr
-	{
-	protected:
-		Operator(ASTExprType type, unsigned int precedence) : Expr(type), precedence(precedence) {}
-		Expr* value;
-	public:
-		Expr* get_value() const { return value; }
-		bool is_set() const { return value; }
-		void set_value(Expr* val);
-		virtual ~Operator() = default;
-		
-		const unsigned int precedence; 
-	};
+    };
 
-	enum class PrecidenceLevel
-	{
-		Lowest = 0,
-		Assignment = 1,
-		LogicalOr = 2,
-		LogicalAnd = 3,
-		BitwiseOr = 4,
-		BitwiseXor = 5,
-		BitwiseAnd = 6,
-		Equality = 7,
-		Relational = 8,
-		Additive = 9,
-		Multiplicative = 10,
-		Unary = 11,
-	};
+    class Decl : public ASTNode 
+    {
+    public:
 
-	// Further derived classes of Expressions
-	enum class BinaryExprOp
-	{
-		Add,
-		Subtract,
-		Multiply,
-		Divide,
-		Modulo,
-		And,
-		Or,
-		Xor,
-	};
-	std::string_view stringify(BinaryExprOp op);
+        static bool classof(const ASTNode* node) 
+        {
+            return node && node->kind >= ASTNodeKind::DeclBegin &&
+                   node->kind < ASTNodeKind::DeclEnd;
+        }
 
-	struct BinaryExpr : public Operator
-	{
-	public:
-		BinaryExpr(Expr* left, BinaryExprOp op, unsigned int precedence) 
-			: Operator(ASTExprType::Binary, precedence), left(left), right(value), op_type(op) {}
-		Expr* get_left() const { return left; }
-		void set_left(Expr* lhs) { left = lhs; }
-		Expr* get_right() const { return right; }
-		virtual ~BinaryExpr() = default;
-		
-		const BinaryExprOp op_type;
-	protected:
-		Expr* left;
-		Expr*& right;
-	};
+    protected:
+        Decl(ASTNodeKind k) : ASTNode(k) {}
+    };
 
-	struct AddOp : public BinaryExpr
-	{
-	public:
-		AddOp(Expr* left) : BinaryExpr(left, BinaryExprOp::Add, static_cast<unsigned int>(PrecidenceLevel::Additive)) {}
-		virtual ~AddOp() = default;
-	};
+    class Type : public ASTNode 
+    {
+    public:
 
-	struct SubtractOp : public BinaryExpr
-	{
-	public:
-		SubtractOp(Expr* left) : BinaryExpr(left, BinaryExprOp::Subtract, static_cast<unsigned int>(PrecidenceLevel::Additive)) {}
-		virtual ~SubtractOp() = default;
-	};
+        static bool classof(const ASTNode* node)
+        {
+            return node && node->kind >= ASTNodeKind::TypeBegin &&
+                   node->kind < ASTNodeKind::TypeEnd;
+        }
 
-	struct MultiplyOp : public BinaryExpr
-	{
-	public:
-		MultiplyOp(Expr* left) : BinaryExpr(left, BinaryExprOp::Multiply, static_cast<unsigned int>(PrecidenceLevel::Multiplicative)) {}
-		virtual ~MultiplyOp() = default;
-	};
+    protected:
+        Type(ASTNodeKind k) : ASTNode(k) {}
+    };
 
-	struct DivideOp : public BinaryExpr
-	{
-	public:
-		DivideOp(Expr* left) : BinaryExpr(left, BinaryExprOp::Divide, static_cast<unsigned int>(PrecidenceLevel::Multiplicative)) {}
-		virtual ~DivideOp() = default;
-	};
+    class Atribute : public ASTNode 
+    {
+    public:
 
-	struct ModuloOp : public BinaryExpr
-	{
-	public:
-		ModuloOp(Expr* left) : BinaryExpr(left, BinaryExprOp::Modulo, static_cast<unsigned int>(PrecidenceLevel::Multiplicative)) {}
-		virtual ~ModuloOp() = default;
-	};
-
-	// Expand ...
-	
-	template<typename T>
-	concept IsBinaryOpDerived = std::derived_from<T, BinaryExpr> && !std::same_as<T, BinaryExpr>;
-
-	enum class UnaryExprOp
-	{
-		Negate,
-		Plus,
-		LogicalNot,
-		Dereferance,
-	};
-
-	struct UnaryExpr : public Operator
-	{
-	public:
-		UnaryExpr(UnaryExprOp op) : Operator(ASTExprType::Unary, static_cast<unsigned int>(PrecidenceLevel::Unary)), operand(value), op_type(op) {}
-		const UnaryExprOp op_type;
-		virtual ~UnaryExpr() = default;
-	private:
-		Expr*& operand;
-	};
-
-	struct UnaryPlusOp : public UnaryExpr
-	{
-	public:
-		UnaryPlusOp() : UnaryExpr(UnaryExprOp::Plus) {}
-		virtual ~UnaryPlusOp() = default;
-	};
-
-	struct UnaryNegateOp : public UnaryExpr
-	{
-	public:
-		UnaryNegateOp() : UnaryExpr(UnaryExprOp::Negate) {}
-		virtual ~UnaryNegateOp() = default;
-	};
-
-	struct UnaryDereferanceOp : public UnaryExpr
-	{
-	public:
-		UnaryDereferanceOp() : UnaryExpr(UnaryExprOp::Dereferance) {}
-		virtual ~UnaryDereferanceOp() = default;
-	};
-
-	struct UnaryLogicalNotOp : public UnaryExpr
-	{
-	public:
-		UnaryLogicalNotOp() : UnaryExpr(UnaryExprOp::LogicalNot) {}
-		virtual ~UnaryLogicalNotOp() = default;
-	};
-
-	template<typename T>
-	concept IsUnaryOpDerived = std::derived_from<T, UnaryExpr> && !std::same_as<T, UnaryExpr>;
-
-	template<typename T>
-	concept IsOperatorDerived = std::derived_from<T, Operator> && !std::same_as<T, Operator>;
-
-	struct LiteralExpr : public Expr
-	{
-	protected:
-		LiteralExpr(ASTExprType type) : Expr(type) {}
-
-	public:
-		virtual ~LiteralExpr() = default;
-	};
-
-	template<typename T>
-	struct NumberLiteralExpr : public LiteralExpr
-	{
-	public:
-		NumberLiteralExpr(T value, NumAtribute* numAtribute = nullptr, NumLiteralTypeAtribute* numLiteralTypeAtribute = nullptr)
-			: LiteralExpr(ASTExprType::NumberLiteral), value(value), numAtribute(numAtribute), numLiteralTypeAtribute(numLiteralTypeAtribute) {
+        static bool classof(const ASTNode* node) 
+        {
+            return node && node->kind >= ASTNodeKind::AtributeBegin &&
+                   node->kind < ASTNodeKind::AtributeEnd;
 		}
-		virtual ~NumberLiteralExpr() = default;
-	private:
-		T value;
-		class NumAtribute* numAtribute;
-		class NumLiteralTypeAtribute* numLiteralTypeAtribute;
-	};
 
-	struct StringLiteralExpr : public LiteralExpr
-	{
-	public:
-		StringLiteralExpr(std::string value) 
-			: LiteralExpr(ASTExprType::StringLiteral), value(std::move(value)) {}
-		virtual ~StringLiteralExpr() = default;
-	private:
-		std::string value;
-	};
+        virtual ~Atribute() = default;
+    protected:
+        Atribute(ASTNodeKind k) : ASTNode(k) {}
+    };
 
-	struct VariableExpr : public Expr
-	{
-	public:
-		VariableExpr(std::string name, VarDecl* decl) 
-			: Expr(ASTExprType::Variable), name(std::move(name)), declaration(decl) {}
-		virtual ~VariableExpr() = default;
-	private:
-		std::string name;
-		VarDecl* declaration; 
-	};
+    // ============================================================================
+    // Expression Nodes
+    // ============================================================================
 
-	struct CallExpr : public Expr
-	{
-	public:
-		CallExpr(class FuncDecl* callee, std::vector<Expr*> arguments)
-			: Expr(ASTExprType::Call), callee(callee), arguments(std::move(arguments)) {
-		}
-		virtual ~CallExpr() = default;
-	private:
-		FuncDecl* callee;
-		std::vector<Expr*> arguments;
-	};
+    class Operator : public Expr 
+    {
+    public:
+        unsigned int get_precedence() const { return precedence; }
+        const Expr* get_value() const { return value; }
+        bool is_set() const { return value != nullptr; }
+        void set_value(Expr* val) { value = val; }
 
+    protected:
+        Operator(ASTNodeKind k, unsigned int prec)
+            : Expr(k), precedence(prec), value(nullptr) {}
+    
+        Expr* value;
+    private:
+        unsigned int precedence;
+    };
 
-	// Further derived classes of Statements
+    class BinaryExpr : public RTTI<BinaryExpr, Operator, ASTNodeKind::BinaryExpr> 
+    {
+    public:
+        BinaryExpr(Expr* left, BinaryExprOp op, unsigned int precedence)
+            : RTTI(precedence), left(left), opType(op) {}
 
-	struct IfStmt : public Stmt
-	{
-	public:
-		IfStmt(Expr* condition, Stmt* thenBranch, Stmt* elseBranch = nullptr) 
-			: Stmt(ASTStmtType::If), condition(condition), thenBranch(thenBranch), elseBranch(elseBranch) {
-		}
-		virtual ~IfStmt() = default;
-	private:
-		Expr* condition;
-		Stmt* thenBranch;
-		Stmt* elseBranch;
-	};
+        const Expr* get_left() const { return left; }
+        void set_left(Expr* lhs) { left = lhs; }
+	    void set_right(Expr* rhs) { set_value(rhs); }
+        const Expr* get_right() const { return value; }
+        BinaryExprOp get_op() const { return opType; }
 
-	struct WhileStmt : public Stmt
-	{
-	public:
-		WhileStmt(Expr* condition, Stmt* body) 
-			: Stmt(ASTStmtType::While), condition(condition), body(body) {
-		}
-		virtual ~WhileStmt() = default;
-	private:
-		Expr* condition;
-		Stmt* body;
-	};
+    private:
+        Expr* left;
+        BinaryExprOp opType;
+    };
 
-	struct ForStmt : public Stmt
-	{
-	public:
-		ForStmt(Stmt* initializer, Expr* condition, Expr* increment, Stmt* body) 
-			: Stmt(ASTStmtType::For), initializer(initializer), condition(condition), increment(increment), body(body) {
-		}
-		virtual ~ForStmt() = default;
-	private:
-		Stmt* initializer;
-		Expr* condition;
-		Expr* increment;
-		Stmt* body;
-	};
+    // Binary operator concrete classes
+    class AddOp : public BinaryExpr {
+    public:
+        AddOp(Expr* left)
+            : BinaryExpr(left, BinaryExprOp::Add, static_cast<unsigned int>(PrecedenceLevel::Additive)) {}
+    };
 
-	struct ReturnStmt : public Stmt
-	{
-	public:
-		ReturnStmt(Expr* value = nullptr) : Stmt(ASTStmtType::Return), value(value) {}
-		virtual ~ReturnStmt() = default;
-	private:
-		Expr* value;
-	};
+    class SubtractOp : public BinaryExpr {
+    public:
+        SubtractOp(Expr* left)
+            : BinaryExpr(left, BinaryExprOp::Subtract, static_cast<unsigned int>(PrecedenceLevel::Additive)) {}
+    };
 
+    class MultiplyOp : public BinaryExpr {
+    public:
+        MultiplyOp(Expr* left)
+            : BinaryExpr(left, BinaryExprOp::Multiply, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
+    };
 
-	enum class DeclStmtType
-	{
-		EmptyScope,
-		Var,
-		Class,
-	};
+    class DivideOp : public BinaryExpr {
+    public:
+        DivideOp(Expr* left)
+            : BinaryExpr(left, BinaryExprOp::Divide, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
+    };
 
-	struct DeclStmt : public Decl, public Stmt
-	{
-	public:
-		const DeclStmtType type;
-		virtual ~DeclStmt() = default;
-	protected:
-	DeclStmt(DeclStmtType type, Stmt* sourceStmt) : Decl(ASTDeclType::Stmt), Stmt(ASTStmtType::Decl), type(type), fatherStmt(sourceStmt) {}
-	private:
-		Stmt* fatherStmt;
-	};
+    class ModuloOp : public BinaryExpr {
+    public:
+        ModuloOp(Expr* left)
+            : BinaryExpr(left, BinaryExprOp::Modulo, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
+    };
 
-	
-	struct EmptyScopeDeclStmt : public DeclStmt
-	{
-	public:
-		EmptyScopeDeclStmt(Stmt* sourceStmt, std::vector<Stmt*> decl) : DeclStmt(DeclStmtType::EmptyScope, sourceStmt), statments(std::move(decl)) {}
-		virtual ~EmptyScopeDeclStmt() = default;
-	private:
-		std::vector<Stmt*> statments;
-	};
+    class UnaryExpr : public RTTI<UnaryExpr, Operator, ASTNodeKind::UnaryExpr> 
+    {
+    public:
+        UnaryExpr(UnaryExprOp op)
+            : RTTI(static_cast<unsigned int>(PrecedenceLevel::Unary)),
+              opType(op) {}
 
-	struct VarDeclStmt : public DeclStmt
-	{
-	public:
-		VarDeclStmt(VarDecl* decl, Stmt* sourceStmt) : DeclStmt(DeclStmtType::Var, sourceStmt), declaration(decl) {}
-		virtual ~VarDeclStmt() = default;
-	private:
-		VarDecl* declaration;
-	};
-	
-	struct ClassDeclStmt : public DeclStmt
-	{
-	public:
-		ClassDeclStmt(ClassDecl* decl, Stmt* sourceStmt) : DeclStmt(DeclStmtType::Class, sourceStmt), declaration(decl) {}
-		virtual ~ClassDeclStmt() = default;
-	private:
-		ClassDecl* declaration;
-	};
+        UnaryExprOp get_op() const { return opType; }
 
+    private:
+        UnaryExprOp opType;
+    };
 
-	// Further derived classes of Declarations
+    // Unary operator concrete classes
+    class UnaryPlusOp : public UnaryExpr {
+    public:
+        UnaryPlusOp() : UnaryExpr(UnaryExprOp::Plus) {}
+    };
 
-	struct VarDecl : public Decl
-	{
-	public:
-		VarDecl(Type* type, std::string_view name) 
-			: Decl(ASTDeclType::Var), vartype(type), name(name) {}
+    class UnaryNegateOp : public UnaryExpr {
+    public:
+        UnaryNegateOp() : UnaryExpr(UnaryExprOp::Negate) {}
+    };
 
-		VarDecl(Type* type, std::string_view name, Atribute* atribute)
-			: Decl(ASTDeclType::Var), vartype(type), name(name), atributes{ atribute } {}
-		VarDecl(Type* type, std::string_view name, std::vector<Atribute*> atributes)
-			: Decl(ASTDeclType::Var), vartype(type), name(name), atributes(std::move(atributes)) {
-		}
-		std::string_view get_name() const;
-		void add_initializer(Expr* initializer);
-		virtual ~VarDecl() = default;
-	private:
-		std::string name;
-		Type* vartype;
-		std::vector<Atribute*> atributes;
-		Expr* initializer;
-	};
+    class UnaryDereferenceOp : public UnaryExpr {
+    public:
+        UnaryDereferenceOp() : UnaryExpr(UnaryExprOp::Dereference) {}
+    };
 
+    class UnaryLogicalNotOp : public UnaryExpr {
+    public:
+        UnaryLogicalNotOp() : UnaryExpr(UnaryExprOp::LogicalNot) {}
+    };
 
+    class LiteralExpr : public Expr 
+    {
+    protected:
+        LiteralExpr(ASTNodeKind k) : Expr(k) {}
+    };
 
-	struct FuncDecl : public Decl
-	{
-	public:
-		FuncDecl(FunctionType* type, std::string_view name, std::vector<std::string_view> paramNames, std::vector<Stmt*> statments);
-		std::string_view get_mingled_name() const;
-		std::string_view get_name() const;
-		const std::vector<Stmt*>& get_statments() const;
-		size_t get_param_count() const;
-		virtual ~FuncDecl() = default;
-	private:
-		std::string mingledName;
-		std::string_view name;
+    template<typename T>
+    class NumberLiteralExpr : public RTTI<NumberLiteralExpr<T>, LiteralExpr, ASTNodeKind::NumberLiteralExpr> 
+    {
+    public:
+        NumberLiteralExpr(T val, NumAtribute* numAttr = nullptr,
+                          NumLiteralTypeAtribute* typeAttr = nullptr)
+            : RTTI(), value(val), numAtribute(numAttr),
+              numLiteralTypeAtribute(typeAttr) {}
 
-		FunctionType* type;
-		std::vector<std::string_view> paramNames;
-		std::vector<Stmt*> statments;
-	private:
-		void set_mingled_name(FunctionType* type, std::string_view name);
-	};
+        T get_value() const { return value; }
 
-	struct ParamDecl : public Decl
-	{
-	public:
-		ParamDecl(Type* type, std::string_view name) 
-			: Decl(ASTDeclType::Param), paramtype(type), name(name) {}
-		virtual ~ParamDecl() = default;
-	private:
-		std::string name;
-		Type* paramtype;
-	};
+    private:
+        T value;
+        NumAtribute* numAtribute;
+        NumLiteralTypeAtribute* numLiteralTypeAtribute;
+    };
 
-	struct ClassDecl : public Decl
-	{
-	public:
-		ClassDecl(std::string name)
-			: Decl(ASTDeclType::Class), name(std::move(name)) {}
+    class StringLiteralExpr : public RTTI<StringLiteralExpr, LiteralExpr, ASTNodeKind::StringLiteralExpr> 
+    {
+    public:
+        StringLiteralExpr(std::string val)
+            : RTTI(), value(std::move(val)) {}
 
-		void add_private_member(Decl* decl);
-		void add_public_member(Decl* decl);
+        const std::string& get_value() const { return value; }
 
-		virtual ~ClassDecl() = default;
-	private:
-		std::string name;
-		std::vector<Decl*> privateMembers;
-		std::vector<Decl*> publicMembers;
-	};
+    private:
+        std::string value;
+    };
 
-	struct ModuleDecl : public Decl
-	{
-	public:
-		ModuleDecl(std::string name) : Decl(ASTDeclType::Module), name(std::move(name)) {}
-		void add_func_decl(FuncDecl* decl);
-		void add_class_decl(ClassDecl* decl);
-		void add_var_decl(VarDecl* decl);
-		void add_import(ImportDecl* importDecl);
-		std::string_view get_name() const;
-		const std::vector<FuncDecl*>& get_func_decls();
-		const std::vector<ClassDecl*>& get_class_decls();
-		const std::vector<VarDecl*>& get_var_decls() const;
+    class VariableExpr : public RTTI<VariableExpr, Expr, ASTNodeKind::VariableExpr> 
+    {
+    public:
+        VariableExpr(std::string name, VarDecl* decl)
+            : RTTI(), name(std::move(name)), declaration(decl) {}
 
-		virtual ~ModuleDecl() = default;
-	private:
-		std::string name;
-		std::vector<FuncDecl*> funcDecls;
-		std::vector<ClassDecl*> classDecls;
-		std::vector<VarDecl*> varDecls;
-	};
+        const std::string& get_name() const { return name; }
+        VarDecl* get_decl() const { return declaration; }
 
-	struct ImportDecl : public Decl
-	{
-	public:
-		ImportDecl(std::string moduleName, ModuleDecl* module) 
-			: Decl(ASTDeclType::Import), moduleName(std::move(moduleName)), module(module) {}
-		virtual ~ImportDecl() = default;
-	private:
-		std::string moduleName;
-		ModuleDecl* module;
-	};
+    private:
+        std::string name;
+        VarDecl* declaration;
+    };
 
-	template<typename T>
-	concept IsDeclDerived = std::derived_from<T, Decl> && !std::same_as<T, Decl>;
+    class CallExpr : public RTTI<CallExpr, Expr, ASTNodeKind::CallExpr> 
+    {
+    public:
+        CallExpr(FuncDecl* callee, std::vector<Expr*> args)
+            : RTTI(), callee(callee), arguments(std::move(args)) {}
 
-	// Further derived classes of Types
+        FuncDecl* get_callee() const { return callee; }
+        const std::vector<Expr*>& get_arguments() const { return arguments; }
 
-	struct PrimitiveType : public Type
-	{
-	protected:
-		PrimitiveType(ASTType type) : Type(type) {}
+    private:
+        FuncDecl* callee;
+        std::vector<Expr*> arguments;
+    };
 
-	public:
-		virtual ~PrimitiveType() = default;
-	};
+    // ============================================================================
+    // Statement Nodes
+    // ============================================================================
 
-	struct Int : public PrimitiveType 
-	{
-	public:
-		Int() : PrimitiveType(ASTType::Int) {}
-		int val = 0;
-	};
+    class IfStmt : public RTTI<IfStmt, Stmt, ASTNodeKind::IfStmt> 
+    {
+    public:
+        IfStmt(Expr* cond, Stmt* thenBr, Stmt* elseBr = nullptr)
+            : RTTI(), condition(cond), thenBranch(thenBr), elseBranch(elseBr) {}
 
-	struct Float : public PrimitiveType
-	{
-	public:
-		Float() : PrimitiveType(ASTType::Float) {}
-		float val = 0.0f;
-	};
+        Expr* get_condition() const { return condition; }
+        Stmt* get_then_branch() const { return thenBranch; }
+        Stmt* get_else_branch() const { return elseBranch; }
 
-	struct Double : public PrimitiveType
-	{
-	public:
-		Double() : PrimitiveType(ASTType::Double) {}
-		double val = 0.0;
-	};
+    private:
+        Expr* condition;
+        Stmt* thenBranch;
+        Stmt* elseBranch;
+    };
 
-	struct Bool : public PrimitiveType
-	{	
-	public:
-		Bool() : PrimitiveType(ASTType::Bool) {}
-		bool val = false;
-	};
+    class WhileStmt : public RTTI<WhileStmt, Stmt, ASTNodeKind::WhileStmt> 
+    {
+    public:
+        WhileStmt(Expr* cond, Stmt* body)
+            : RTTI(), condition(cond), body(body) {}
 
-	struct Char : public PrimitiveType
-	{
-	public:
-		Char() : PrimitiveType(ASTType::Char) {}
-		char val = '\0';
-	};
+        Expr* get_condition() const { return condition; }
+        Stmt* get_body() const { return body; }
 
-	struct PointerType : public Type
-	{
-	public:
-		PointerType(Type* type) : Type(ASTType::Pointer), pointeeType(type) {}
-		Type* get_pointee_type() const { return pointeeType; }
-		virtual ~PointerType() = default;
-	private:
-		Type* pointeeType;
-	};
+    private:
+        Expr* condition;
+        Stmt* body;
+    };
 
-	struct ArrayType : public Type
-	{
-	public:
-		ArrayType(Type* elementType) : Type(ASTType::Array), elementType(elementType) {}
-		virtual ~ArrayType() = default;
-	private:
+    class ForStmt : public RTTI<ForStmt, Stmt, ASTNodeKind::ForStmt> 
+    {
+    public:
+        ForStmt(Stmt* init, Expr* cond, Expr* inc, Stmt* body)
+            : RTTI(), initializer(init), condition(cond), increment(inc), body(body) {}
+
+        Stmt* get_initializer() const { return initializer; }
+        Expr* get_condition() const { return condition; }
+        Expr* get_increment() const { return increment; }
+        Stmt* get_body() const { return body; }
+
+    private:
+        Stmt* initializer;
+        Expr* condition;
+        Expr* increment;
+        Stmt* body;
+    };
+
+    class ReturnStmt : public RTTI<ReturnStmt, Stmt, ASTNodeKind::ReturnStmt> 
+    {
+    public:
+        ReturnStmt(Expr* val = nullptr)
+            : RTTI(), value(val) {}
+
+        Expr* get_value() const { return value; }
+
+    private:
+        Expr* value;
+    };
+
+    // ============================================================================
+    // Declaration Nodes
+    // ============================================================================
+
+    class VarDecl : public RTTI<VarDecl, Decl, ASTNodeKind::VarDecl> 
+    {
+    public:
+        VarDecl(Type* type, std::string_view name)
+            : RTTI(), varType(type), name(name), initializer(nullptr) {}
+
+        VarDecl(Type* type, std::string_view name, std::vector<Atribute*> attrs)
+            : RTTI(), varType(type), name(name),
+              atributes(std::move(attrs)), initializer(nullptr) {}
+
+        std::string_view get_name() const { return name; }
+        void add_initializer(Expr* init) { initializer = init; }
+        Type* get_type() const { return varType; }
+
+    private:
+        std::string name;
+        Type* varType;
+        std::vector<Atribute*> atributes;
+        Expr* initializer;
+    };
+
+    class FuncDecl : public RTTI<FuncDecl, Decl, ASTNodeKind::FuncDecl>
+    {
+    public:
+        FuncDecl(FunctionType* type, const std::string& name,
+                 std::vector<std::string_view> paramNames, std::vector<Stmt*> stmts);
+
+        std::string_view get_mangled_name() const { return mangledName; }
+        std::string_view get_name() const { return name; }
+        const std::vector<Stmt*>& get_statements() const { return statements; }
+        size_t get_param_count() const { return paramNames.size(); }
+
+    private:
+        std::string mangledName;
+        std::string name;
+        FunctionType* type;
+        std::vector<std::string_view> paramNames;
+        std::vector<Stmt*> statements;
+
+        void set_mangled_name(FunctionType* type, std::string_view name);
+    };
+
+    class ParamDecl : public RTTI<ParamDecl, Decl, ASTNodeKind::ParamDecl>
+    {
+    public:
+        ParamDecl(Type* type, std::string_view name)
+            : RTTI(), paramType(type), name(name) {}
+
+        std::string_view get_name() const { return name; }
+        Type* get_type() const { return paramType; }
+
+    private:
+        std::string name;
+        Type* paramType;
+    };
+
+    class ClassDecl : public RTTI<ClassDecl, Decl, ASTNodeKind::ClassDecl>
+    {
+    public:
+        ClassDecl(std::string name)
+            : RTTI(), name(std::move(name)) {}
+
+        void add_private_member(Decl* decl) { privateMembers.push_back(decl); }
+        void add_public_member(Decl* decl) { publicMembers.push_back(decl); }
+        std::string_view get_name() const { return name; }
+
+    private:
+        std::string name;
+        std::vector<Decl*> privateMembers;
+        std::vector<Decl*> publicMembers;
+    };
+
+    class ModuleDecl : public RTTI<ModuleDecl, Decl, ASTNodeKind::ModuleDecl>
+    {
+    public:
+        ModuleDecl(std::string name)
+            : RTTI(), name(std::move(name)) {}
+
+        void add_func_decl(FuncDecl* decl) { funcDecls.push_back(decl); }
+        void add_class_decl(ClassDecl* decl) { classDecls.push_back(decl); }
+        void add_var_decl(VarDecl* decl) { varDecls.push_back(decl); }
+		void add_import(class ImportDecl* importDecl) { imports.push_back(importDecl); }
+
+        std::string_view get_name() const { return name; }
+
+        const std::vector<FuncDecl*>& get_func_decls() const { return funcDecls; }
+        const std::vector<ClassDecl*>& get_class_decls() const { return classDecls; }
+        const std::vector<VarDecl*>& get_var_decls() const { return varDecls; }
+
+    private:
+        std::string name;
+		std::vector<class ImportDecl*> imports;
+        std::vector<FuncDecl*> funcDecls;
+        std::vector<ClassDecl*> classDecls;
+        std::vector<VarDecl*> varDecls;
+    };
+
+    class ImportDecl : public RTTI<ImportDecl, Decl, ASTNodeKind::ImportDecl>
+    {
+    public:
+        ImportDecl(std::string moduleName, ModuleDecl* module)
+            : RTTI(), moduleName(std::move(moduleName)), module(module) {}
+
+        std::string_view get_module_name() const { return moduleName; }
+        ModuleDecl* get_module() const { return module; }
+
+    private:
+        std::string moduleName;
+        ModuleDecl* module;
+    };
+
+    // ============================================================================
+    // Type Nodes
+    // ============================================================================
+
+    class PrimitiveType : public Type {
+    protected:
+        PrimitiveType(ASTNodeKind k) : Type(k) {}
+    };
+
+    class IntType : public RTTI<IntType, PrimitiveType, ASTNodeKind::IntType> {
+    public:
+        IntType() : RTTI() {}
+        int val = 0;
+    };
+
+    class FloatType : public RTTI<FloatType, PrimitiveType, ASTNodeKind::FloatType> {
+    public:
+        FloatType() : RTTI() {}
+        float val = 0.0f;
+    };
+
+    class DoubleType : public RTTI<DoubleType, PrimitiveType, ASTNodeKind::DoubleType> {
+    public:
+        DoubleType() : RTTI() {}
+        double val = 0.0;
+    };
+
+    class BoolType : public RTTI<BoolType, PrimitiveType, ASTNodeKind::BoolType> {
+    public:
+        BoolType() : RTTI() {}
+        bool val = false;
+    };
+
+    class CharType : public RTTI<CharType, PrimitiveType, ASTNodeKind::CharType> {
+    public:
+        CharType() : RTTI() {}
+        char val = '\0';
+    };
+
+    class PointerType : public RTTI<PointerType, Type, ASTNodeKind::PointerType> {
+    public:
+        PointerType(Type* type)
+            : RTTI(), pointeeType(type) {}
+
+        Type* get_pointee_type() const { return pointeeType; }
+
+    private:
+        Type* pointeeType;
+    };
+
+    class ArrayType : public RTTI<ArrayType, Type, ASTNodeKind::ArrayType> {
+    public:
+        ArrayType(Type* elemType, size_t size)
+            : RTTI(), elementType(elemType), size(size) {}
+
+		size_t get_size() const { return size; }
+
+        Type* get_element_type() const { return elementType; }
+
+    private:
 		Type* elementType;
-	};
+        const size_t size = 0;
+    };
 
-	struct FunctionType : public Type
-	{
-	public:
-		FunctionType(std::vector<Type*> parameterTypes, Type* returnType)
-			: Type(ASTType::Function), parameterTypes(std::move(parameterTypes)), returnType(returnType) {
-		}
-
-		const std::vector<Type*>& get_param_types() const;
-		
-		Type* const get_return_type() const;
-
-		virtual ~FunctionType() = default;
-	private:
-		std::vector<Type*> parameterTypes;
+    class FunctionType : public RTTI<FunctionType, Type, ASTNodeKind::FunctionType> 
+    {
+    public:
+        FunctionType(Type* returnType, std::vector<Type*> paramTypes)
+            : RTTI(), returnType(returnType), parameterTypes(std::move(paramTypes)) {
+        }
+        Type* get_return_type() const { return returnType; }
+        const std::vector<Type*>& get_param_types() const { return parameterTypes; }
+    private:
 		Type* returnType;
-	};
+		std::vector<Type*> parameterTypes;
+    };
 
-	struct ClassType : public Type
-	{
-	public:
-		ClassType(std::string className) : Type(ASTType::Class), className(std::move(className)) {}
-		std::string_view get_class_name() const { return className; }
-		virtual ~ClassType() = default;
-	private:
-		std::string className;
-	};
+    class ClassType : public RTTI<ClassType, Type, ASTNodeKind::ClassType> {
+    public:
+        ClassType(std::string className)
+            : RTTI(), className(std::move(className)) {}
 
-	// Further derived classes of Atributes
+        std::string_view get_class_name() const { return className; }
 
-	struct ConstAtribute : public Atribute
-	{};
+    private:
+        std::string className;
+    };
 
-	struct UnsignedAtribute : public Atribute
-	{
-	};
+    // ============================================================================
+    // Attribute Nodes
+    // ============================================================================
 
-	struct SignedAtribute : public Atribute
-	{
-	};
+    class ConstAtribute : public Atribute {
+    public:
+        ConstAtribute() : Atribute(ASTNodeKind::ConstAtribute) {} // Placeholder
+    };
 
-	struct NumAtribute : public Atribute
-	{
-	public:
-		~NumAtribute() override = default;
-	};
+    class UnsignedAtribute : public Atribute {
+    public:
+        UnsignedAtribute() : Atribute(ASTNodeKind::UnsignedAtribute) {}
+    };
 
-	struct UnsignedNumAtribute : public NumAtribute
-	{
-	public:
-	};
+    class NumAtribute : public Atribute {
+    public:
+		const NumAtributeKind kind;
+        NumAtribute() : Atribute(ASTNodeKind::NumAtribute) {}
+    };
 
-	struct LongNumAtribute : public NumAtribute
-	{
-	public:
-	};
+    class UnsignedNumAtribute : public NumAtribute {};
+    class LongNumAtribute : public NumAtribute {};
+    class ShortNumAtribute : public NumAtribute {};
 
-	struct ShortNumAtribute : public NumAtribute
-	{
-	public:
-	};
+    class NumLiteralTypeAtribute : public Atribute {
+    public:
+        NumLiteralTypeAtribute() : Atribute(ASTNodeKind::ExprBegin) {}
+    };
 
-	struct NumLiteralTypeAtribute : public Atribute
-	{
-	public:
-		~NumLiteralTypeAtribute() override = default;
-	};
+    class FloatAtribute : public NumLiteralTypeAtribute {};
+    class DoubleAtribute : public NumLiteralTypeAtribute {};
 
-	struct FloatAtribute : public NumLiteralTypeAtribute
-	{};
+    // ============================================================================
+    // Concepts
+    // ============================================================================
 
-	struct DoubleAtribute : public NumLiteralTypeAtribute
-	{};
+    template<typename T>
+    concept NameableDecl = std::is_base_of_v<Decl, T> && requires(T t) {
+        { t.get_name() } -> std::convertible_to<std::string_view>;
+    };
 
-	using Modules = std::vector<ModuleDecl*>;
+    template<typename T>
+    concept IsBinaryOpDerived = std::derived_from<T, BinaryExpr> && !std::same_as<T, BinaryExpr>;
 
-}
+    template<typename T>
+    concept IsUnaryOpDerived = std::derived_from<T, UnaryExpr> && !std::same_as<T, UnaryExpr>;
+
+    template<typename T>
+    concept IsOperatorDerived = std::derived_from<T, Operator> && !std::same_as<T, Operator>;
+
+    template<typename T>
+    concept IsDeclDerived = std::derived_from<T, Decl> && !std::same_as<T, Decl>;
+
+    // ============================================================================
+    // Type Aliases
+    // ============================================================================
+
+    using Modules = std::vector<ModuleDecl*>;
+
+    
+
+
+} // namespace alang
+

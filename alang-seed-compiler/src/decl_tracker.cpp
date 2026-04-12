@@ -112,7 +112,7 @@ namespace alang
 		auto vars = _modules[_currentModule.index]->get_var_decls();
 		for (const auto& var : vars)
 		{
-			if (var->type == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
+			if (var->type == DeclKind::Var && static_cast<const VarDecl*>(var)->get_name() == name)
 				return true;
 		}
 		return false;
@@ -136,7 +136,7 @@ namespace alang
 	//	auto vars = _modules[_currentModule.index]->get_var_decls();
 	//	for (const auto& var : vars)
 	//	{
-	//		if (var->type() == ASTDeclType::Var && static_cast<const VarDecl*>(var)->get_name() == name)
+	//		if (var->type() == DeclKind::Var && static_cast<const VarDecl*>(var)->get_name() == name)
 	//			return static_cast<VarDecl*>(var);
 	//	}
 	//	return nullptr;

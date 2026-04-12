@@ -17,7 +17,7 @@ namespace alang
 		{
 			switch (nameToResolve.whereFrom->type)
 			{
-			case ASTDeclType::Func:
+			case DeclKind::Func:
 				if (nameToResolve.name.size() == 0)
 				{
 					for (size_t i = nameToResolve.nameAccessIndices.size() - 1; i >= 0; i--)
@@ -26,7 +26,7 @@ namespace alang
 						VarDecl* varDecl = search_for_var_decl(nameToResolve.name, size, static_cast<FuncDecl*>(nameToResolve.whereFrom));
 					}
 				}
-			case ASTDeclType::Stmt: // This hnadles declarations that are also statments, and we will catagorize emptry scopes { ... } as Decl Stmts
+			case DeclKind::Stmt: // This hnadles declarations that are also statments, and we will catagorize emptry scopes { ... } as Decl Stmts
 				if (nameToResolve.name.size() == 0)
 				{ // make int a = a illigal!!! -- never mind, we can support this by first resolving the name and then adding it to the scope, but for now we will just make it illigal
 					for (size_t i = nameToResolve.nameAccessIndices.size() - 1; i >= 0; i--)
