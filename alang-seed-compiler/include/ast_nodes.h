@@ -100,6 +100,9 @@ namespace alang {
         And,
         Or,
         Xor,
+		LogicalAnd,
+		LogicalOr,
+
     };
 
     enum class UnaryExprOp 
@@ -285,94 +288,39 @@ namespace alang {
 
     protected:
         Operator(ASTNodeKind k, unsigned int prec)
-            : Expr(k), precedence(prec), value(nullptr) {}
+            : Expr(k) {}
     
-        Expr* value;
-    private:
-        unsigned int precedence;
+        Expr* value = nullptr;
     };
 
     class BinaryExpr : public RTTI<BinaryExpr, Operator, ASTNodeKind::BinaryExpr> 
     {
     public:
-        BinaryExpr(Expr* left, BinaryExprOp op, unsigned int precedence)
-            : RTTI(precedence), left(left), opType(op) {}
+        BinaryExpr(Expr* left, BinaryExprOp op)
+            : RTTI(), left(left), opType(op) {}
 
         const Expr* get_left() const { return left; }
         void set_left(Expr* lhs) { left = lhs; }
 	    void set_right(Expr* rhs) { set_value(rhs); }
         const Expr* get_right() const { return value; }
-        BinaryExprOp get_op() const { return opType; }
 
+        const BinaryExprOp opType;
     private:
         Expr* left;
-        BinaryExprOp opType;
     };
 
-    // Binary operator concrete classes
-    class AddOp : public BinaryExpr {
-    public:
-        AddOp(Expr* left)
-            : BinaryExpr(left, BinaryExprOp::Add, static_cast<unsigned int>(PrecedenceLevel::Additive)) {}
-    };
-
-    class SubtractOp : public BinaryExpr {
-    public:
-        SubtractOp(Expr* left)
-            : BinaryExpr(left, BinaryExprOp::Subtract, static_cast<unsigned int>(PrecedenceLevel::Additive)) {}
-    };
-
-    class MultiplyOp : public BinaryExpr {
-    public:
-        MultiplyOp(Expr* left)
-            : BinaryExpr(left, BinaryExprOp::Multiply, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
-    };
-
-    class DivideOp : public BinaryExpr {
-    public:
-        DivideOp(Expr* left)
-            : BinaryExpr(left, BinaryExprOp::Divide, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
-    };
-
-    class ModuloOp : public BinaryExpr {
-    public:
-        ModuloOp(Expr* left)
-            : BinaryExpr(left, BinaryExprOp::Modulo, static_cast<unsigned int>(PrecedenceLevel::Multiplicative)) {}
-    };
+	unsigned int get_precedence(BinaryExprOp op);
 
     class UnaryExpr : public RTTI<UnaryExpr, Operator, ASTNodeKind::UnaryExpr> 
     {
     public:
         UnaryExpr(UnaryExprOp op)
-            : RTTI(static_cast<unsigned int>(PrecedenceLevel::Unary)),
-              opType(op) {}
+            : RTTI(), opType(op) {}
 
-        UnaryExprOp get_op() const { return opType; }
-
+        const UnaryExprOp opType;
     private:
-        UnaryExprOp opType;
     };
 
-    // Unary operator concrete classes
-    class UnaryPlusOp : public UnaryExpr {
-    public:
-        UnaryPlusOp() : UnaryExpr(UnaryExprOp::Plus) {}
-    };
-
-    class UnaryNegateOp : public UnaryExpr {
-    public:
-        UnaryNegateOp() : UnaryExpr(UnaryExprOp::Negate) {}
-    };
-
-    class UnaryDereferenceOp : public UnaryExpr {
-    public:
-        UnaryDereferenceOp() : UnaryExpr(UnaryExprOp::Dereference) {}
-    };
-
-    class UnaryLogicalNotOp : public UnaryExpr {
-    public:
-        UnaryLogicalNotOp() : UnaryExpr(UnaryExprOp::LogicalNot) {}
-    };
 
     class LiteralExpr : public Expr 
     {

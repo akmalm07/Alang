@@ -12,18 +12,18 @@ namespace alang {
         std::vector<std::string_view> paramNames,
         std::vector<Stmt*> stmts)
         : RTTI(), name(name), type(type),
-        paramNames(std::move(paramNames)), statements(std::move(stmts)) 
+        paramNames(std::move(paramNames)), statements(std::move(stmts))
     {
         set_mangled_name(type, name);
     }
 
     std::string stringify(Type* type)
     {
+        // TODO: Make sure to incorperate this!!!
+        // std::string atributes; 
+        // if (type->get_atributes());
 
-        std::string atributes;
-        if (type->get_atributes());
-
-        switch (type->kind) 
+        switch (type->kind)
         {
         case ASTNodeKind::IntType:
             return "i";
@@ -62,17 +62,42 @@ namespace alang {
         }
     }
 
-    void FuncDecl::set_mangled_name(FunctionType* type, std::string_view name) 
+    void FuncDecl::set_mangled_name(FunctionType* type, std::string_view name)
     {
-        std::string str;
-        return std::format("_X{}{}", name.length(), name);
+        std::string str = std::format("_X{}", name);
 
         // Add parameter types to mangled name
 
-        }
-
-        mangledName = oss.str();
+        mangledName = str;
     }
+
+
+    unsigned int get_precedence(BinaryExprOp op)
+    {
+        switch (op)
+        {
+        case BinaryExprOp::Add:
+        case BinaryExprOp::Subtract:
+			return static_cast<unsigned int>(PrecedenceLevel::Additive);
+        case BinaryExprOp::Multiply:
+        case BinaryExprOp::Divide:
+        case BinaryExprOp::Modulo:
+			return static_cast<unsigned int>(PrecedenceLevel::Multiplicative);
+        case BinaryExprOp::And:
+			return static_cast<unsigned int>(PrecedenceLevel::BitwiseAnd);
+        case BinaryExprOp::Or:
+			return static_cast<unsigned int>(PrecedenceLevel::BitwiseOr);
+        case BinaryExprOp::Xor:
+			return static_cast<unsigned int>(PrecedenceLevel::BitwiseXor);
+		case BinaryExprOp::LogicalAnd:
+			return static_cast<unsigned int>(PrecedenceLevel::LogicalAnd);
+		case BinaryExprOp::LogicalOr:
+			return static_cast<unsigned int>(PrecedenceLevel::LogicalOr);
+        default:
+            break;
+        }
+    }
+}
 
     // ============================================================================
     // ModuleDecl Implementation

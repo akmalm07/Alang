@@ -23,9 +23,9 @@ namespace alang {
 				return;
 			}
 			
-			if (expr->type == ASTExprType::Binary)
+			if (expr->kind == ASTNodeKind::BinaryExpr)
 				eval_order_of_operations(static_cast<BinaryExpr*>(expr));
-			else if (expr->type == ASTExprType::Unary)
+			else if (expr->kind == ASTNodeKind::UnaryExpr)
 				eval_order_of_operations(static_cast<UnaryExpr*>(expr));
 			else
 			{
@@ -45,13 +45,13 @@ namespace alang {
 	bool ExprBuilder::is_operator(Expr* expr) const
 	{
 		if (!expr) return false;
-		return expr->type == ASTExprType::Binary || expr->type == ASTExprType::Unary;
+		return expr->kind == ASTNodeKind::BinaryExpr || expr->kind == ASTNodeKind::UnaryExpr;
 	}
 
 	bool ExprBuilder::is_item_expr(Expr* expr) const
 	{
 		if (!expr) return false;
-		return expr->type != ASTExprType::Binary || expr->type != ASTExprType::Unary;
+		return expr->kind != ASTNodeKind::BinaryExpr || expr->kind != ASTNodeKind::UnaryExpr;
 	}
 
 	bool ExprBuilder::is_unary_operator(Expr* expr) const
